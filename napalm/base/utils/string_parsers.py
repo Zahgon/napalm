@@ -14,7 +14,7 @@ def convert(text: str) -> Union[str, int]:
 
 def alphanum_key(key: str) -> List[Union[str, int]]:
     """split on end numbers."""
-    return [convert(c) for c in re.split("([0-9]+)", key)]
+    pass
 
 
 def sorted_nicely(sort_me: Iterable) -> Iterable:
@@ -41,16 +41,7 @@ def colon_separated_string_to_dict(string: str, separator: str = ":") -> Dict[st
     into a dictionary
 
     """
-    dictionary: Dict[str, Optional[str]] = dict()
-    for line in string.splitlines():
-        line_data = line.split(separator)
-        if len(line_data) > 1:
-            dictionary[line_data[0].strip()] = "".join(line_data[1:]).strip()
-        elif len(line_data) == 1:
-            dictionary[line_data[0].strip()] = None
-        else:
-            raise Exception(f"Something went wrong parsing the colon separated string:\n\n{line}")
-    return dictionary
+    pass
 
 
 def hyphen_range(string: str) -> List[int]:
@@ -58,21 +49,7 @@ def hyphen_range(string: str) -> List[int]:
     Expands a string of numbers separated by commas and hyphens into a list of integers.
     For example:  2-3,5-7,20-21,23,100-200
     """
-    list_numbers = list()
-    temporary_list = string.split(",")
-
-    for element in temporary_list:
-        sub_element = element.split("-")
-
-        if len(sub_element) == 1:
-            list_numbers.append(int(sub_element[0]))
-        elif len(sub_element) == 2:
-            for number in range(int(sub_element[0]), int(sub_element[1]) + 1):
-                list_numbers.append(number)
-        else:
-            raise Exception("Something went wrong expanding the range {}".format(string))
-
-    return list_numbers
+    pass
 
 
 def convert_uptime_string_seconds(uptime: str) -> int:

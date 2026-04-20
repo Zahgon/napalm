@@ -132,20 +132,7 @@ class IOSXR(object):
         """
 
         def _getattr(*args, **kwargs):
-            cmd = item.replace("_", " ")
-            for arg in args:
-                cmd += " %s" % arg
-
-            if kwargs.get("config"):
-                response = self._execute_config_show(cmd)
-            else:
-                response = self._execute_show(cmd)
-
-            match = re.search(".*(!! IOS XR Configuration.*)</Exec>", response, re.DOTALL)
-
-            if match is not None:
-                response = match.group(1)
-            return response
+            pass
 
         if item.startswith("show"):
             return _getattr
@@ -178,27 +165,7 @@ class IOSXR(object):
 
         Connects to the device using SSH and drops into XML mode.
         """
-        try:
-            self.device = ConnectHandler(
-                device_type="cisco_xr",
-                ip=self.hostname,
-                port=self.port,
-                username=self.username,
-                password=self.password,
-                global_cmd_verify=False,
-                **self.netmiko_kwargs,
-            )
-            self.device.timeout = self.timeout
-            self._xml_agent_alive = True  # successfully open thus alive
-        except NetMikoTimeoutException as t_err:
-            logger.error(t_err.args[0])
-            raise ConnectError(t_err.args[0])
-        except NetMikoAuthenticationException as au_err:
-            logger.error(au_err.args[0])
-            raise ConnectError(au_err.args[0])
-
-        self._cli_prompt = self.device.find_prompt()  # get the prompt
-        self._enter_xml_mode()
+        pass
 
     def is_alive(self):
         """

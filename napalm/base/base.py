@@ -108,29 +108,7 @@ class NetworkDriver(object):
         self, device_type: str, netmiko_optional_args: Optional[Dict] = None
     ) -> ConnectHandler:
         """Standardized method of creating a Netmiko connection using napalm attributes."""
-        if netmiko_optional_args is None:
-            netmiko_optional_args = {}
-        try:
-            self._netmiko_device = ConnectHandler(
-                device_type=device_type,
-                host=self.hostname,
-                username=self.username,
-                password=self.password,
-                timeout=self.timeout,
-                **netmiko_optional_args,
-            )
-        except NetMikoTimeoutException:
-            raise ConnectionException("Cannot connect to {}".format(self.hostname))
-
-        # Disable enable mode if force_no_enable is true (for NAPALM drivers
-        # that support force_no_enable)
-        try:
-            if not self.force_no_enable:
-                self._netmiko_device.enable()
-        except AttributeError:
-            self._netmiko_device.enable()
-
-        return self._netmiko_device
+        pass
 
     def _netmiko_close(self) -> None:
         """Standardized method of closing a Netmiko connection."""
@@ -209,13 +187,7 @@ class NetworkDriver(object):
         source does not have the right format, either the arguments in `template_vars` are not \
         properly specified.
         """
-        return napalm.base.helpers.load_template(
-            self,
-            template_name,
-            template_source=template_source,
-            template_path=template_path,
-            **template_vars,
-        )
+        pass
 
     def load_replace_candidate(
         self, filename: Optional[str] = None, config: Optional[str] = None
@@ -1762,7 +1734,4 @@ class NetworkDriver(object):
 
     def _canonical_int(self, interface: str) -> str:
         """Expose the helper function within this class."""
-        if self.use_canonical_interface is True:
-            return canonical_interface_name(interface, addl_name_map=None)
-        else:
-            return interface
+        pass

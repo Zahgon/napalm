@@ -36,35 +36,11 @@ def raise_exception(result):  # type: ignore
 
 
 def is_mocked_method(method: str) -> bool:
-    mocked_methods = ["traceroute", "ping"]
-    if method.startswith("get_") or method in mocked_methods:
-        return True
-    return False
+    pass
 
 
 def mocked_method(path: str, name: str, count: int) -> Callable:
-    parent_method = getattr(NetworkDriver, name)
-    parent_method_args = inspect.getfullargspec(parent_method)
-    modifier = 0 if "self" not in parent_method_args.args else 1
-
-    def _mocked_method(*args, **kwargs):  # type: ignore
-        # Check len(args)
-        if len(args) + len(kwargs) + modifier > len(parent_method_args.args):
-            raise TypeError(
-                "{}: expected at most {} arguments, got {}".format(
-                    name, len(parent_method_args.args), len(args) + modifier
-                )
-            )
-
-        # Check kwargs
-        unexpected = [x for x in kwargs if x not in parent_method_args.args]
-        if unexpected:
-            raise TypeError(
-                "{} got an unexpected keyword argument '{}'".format(name, unexpected[0])
-            )
-        return mocked_data(path, name, count)
-
-    return _mocked_method
+    pass
 
 
 def mocked_data(path: str, name: str, count: int) -> Union[Dict, List]:
@@ -141,9 +117,7 @@ class MockDriver(NetworkDriver):
             raise napalm.base.exceptions.ConnectionClosedException("connection closed")
 
     def open(self) -> None:
-        if self.fail_on_open:
-            raise napalm.base.exceptions.ConnectionException("You told me to do this")
-        self.opened = True
+        pass
 
     def close(self) -> None:
         self.opened = False
@@ -168,22 +142,12 @@ class MockDriver(NetworkDriver):
     def load_merge_candidate(
         self, filename: Optional[str] = None, config: Optional[str] = None
     ) -> None:
-        count = self._count_calls("load_merge_candidate")
-        self._raise_if_closed()
-        self.merge = True
-        self.filename = filename
-        self.config = config
-        mocked_data(self.path, "load_merge_candidate", count)
+        pass
 
     def load_replace_candidate(
         self, filename: Optional[str] = None, config: Optional[str] = None
     ) -> None:
-        count = self._count_calls("load_replace_candidate")
-        self._raise_if_closed()
-        self.merge = False
-        self.filename = filename
-        self.config = config
-        mocked_data(self.path, "load_replace_candidate", count)
+        pass
 
     def compare_config(self, filename: Optional[str] = None, config: Optional[str] = None) -> str:
         count = self._count_calls("compare_config")
@@ -216,13 +180,7 @@ class MockDriver(NetworkDriver):
         mocked_data(self.path, "discard_config", count)
 
     def confirm_commit(self) -> None:
-        count = self._count_calls("confirm_commit")
-        self._raise_if_closed()
-        self.merge = None
-        self.filename = None
-        self.config = None
-        self._pending_commits = False
-        mocked_data(self.path, "confirm_commit", count)
+        pass
 
     def has_pending_commit(self) -> bool:
         return self._pending_commits
@@ -233,9 +191,7 @@ class MockDriver(NetworkDriver):
 
     def _rpc(self, get: str) -> str:
         """This one is only useful for junos."""
-        return_value = list(self.cli([get]).values())[0]
-        assert isinstance(return_value, str)
-        return return_value
+        pass
 
     def __getattribute__(self, name: str) -> Callable:
         if is_mocked_method(name):

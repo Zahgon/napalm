@@ -25,10 +25,7 @@ class EOSVersion:
         :param version: str: version
         :return: None
         """
-        m = re.match(r"^(?P<numbers>\d[\d.]+\d)", version)
-
-        if m:
-            self.numbers = m.group("numbers").split(".")
+        pass
 
     def __lt__(self, other):
         if not len(self.numbers):

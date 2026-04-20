@@ -15,29 +15,7 @@ from functools import wraps
 def debugging(name):
     def real_decorator(func):
         @wraps(func)
-        def wrapper(*args, **kwargs):
-            censor_parameters = ["password"]
-            censored_kwargs = {
-                k: v if k not in censor_parameters else "*******" for k, v in kwargs.items()
-            }
-            logger.debug("{} - Calling with args: {}, {}".format(name, args, censored_kwargs))
-            try:
-                r = func(*args, **kwargs)
-                logger.debug("{} - Successful".format(name))
-                return r
-            except NotImplementedError:
-                if name not in [
-                    "pre_connection_tests",
-                    "connection_tests",
-                    "post_connection_tests",
-                ]:
-                    logger.debug("{} - Not implemented".format(name))
-            except Exception as e:
-                logger.error("{} - Failed: {}".format(name, e))
-                print("\n================= Traceback =================\n")
-                raise
-
-        return wrapper
+        pass
 
     return real_decorator
 
@@ -207,12 +185,12 @@ def call_open_device(device):
 
 @debugging("load_replace_candidate")
 def call_load_replace_candidate(device, *args, **kwargs):
-    return device.load_replace_candidate(*args, **kwargs)
+    pass
 
 
 @debugging("load_merge_candidate")
 def call_load_merge_candidate(device, *args, **kwargs):
-    return device.load_merge_candidate(*args, **kwargs)
+    pass
 
 
 @debugging("compare_config")

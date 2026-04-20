@@ -193,12 +193,7 @@ def parse_intf_section(interface):
 
 def convert_hhmmss(hhmmss):
     """Convert hh:mm:ss to seconds."""
-    fields = hhmmss.split(":")
-    if len(fields) != 3:
-        raise ValueError("Received invalid HH:MM:SS data: {}".format(hhmmss))
-    fields = [int(x) for x in fields]
-    hours, minutes, seconds = fields
-    return (hours * 3600) + (minutes * 60) + seconds
+    pass
 
 
 def bgp_time_conversion(bgp_uptime):
@@ -217,37 +212,7 @@ def bgp_time_conversion(bgp_uptime):
     1y28w
     never
     """
-    bgp_uptime = bgp_uptime.strip()
-    uptime_letters = set(["w", "h", "d"])
-
-    if "never" in bgp_uptime:
-        return -1
-    elif ":" in bgp_uptime:
-        times = bgp_uptime.split(":")
-        times = [int(x) for x in times]
-        hours, minutes, seconds = times
-        return (hours * 3600) + (minutes * 60) + seconds
-    # Check if any letters 'w', 'h', 'd' are in the time string
-    elif uptime_letters & set(bgp_uptime):
-        form1 = r"(\d+)d(\d+)h"  # 1d17h
-        form2 = r"(\d+)w(\d+)d"  # 8w5d
-        form3 = r"(\d+)y(\d+)w"  # 1y28w
-        match = re.search(form1, bgp_uptime)
-        if match:
-            days = int(match.group(1))
-            hours = int(match.group(2))
-            return (days * DAY_SECONDS) + (hours * 3600)
-        match = re.search(form2, bgp_uptime)
-        if match:
-            weeks = int(match.group(1))
-            days = int(match.group(2))
-            return (weeks * WEEK_SECONDS) + (days * DAY_SECONDS)
-        match = re.search(form3, bgp_uptime)
-        if match:
-            years = int(match.group(1))
-            weeks = int(match.group(2))
-            return (years * YEAR_SECONDS) + (weeks * WEEK_SECONDS)
-    raise ValueError("Unexpected value for BGP uptime string: {}".format(bgp_uptime))
+    pass
 
 
 def bgp_normalize_table_data(bgp_table):
@@ -263,14 +228,7 @@ def bgp_normalize_table_data(bgp_table):
 
     Normalize this so the line wrap doesn't exit.
     """
-    bgp_table = bgp_table.strip()
-    # Remove newline after ipv6 address
-    bgp_ipv6_multiline_pattern = r"({})\s*\n".format(IPV4_OR_IPV6_REGEX)
-    bgp_table = re.sub(bgp_ipv6_multiline_pattern, r"\1", bgp_table)
-    # Remove newline after a long AS number
-    bgp_long_as_multiline_pattern = r"((?:{})\s*\d*\s*\d*)\s*\n".format(IPV4_OR_IPV6_REGEX)
-    bgp_table = re.sub(bgp_long_as_multiline_pattern, r"\1", bgp_table)
-    return bgp_table
+    pass
 
 
 def bgp_table_parser(bgp_table):
@@ -279,140 +237,12 @@ def bgp_table_parser(bgp_table):
     Example line:
     10.2.1.14       4    10  472516  472238      361    0    0     3w1d 9
     """
-    bgp_table = bgp_table.strip()
-    for bgp_entry in bgp_table.splitlines():
-        bgp_table_fields = bgp_entry.split()
-
-        try:
-            if re.search(r"Shut.*Admin", bgp_entry):
-                (
-                    peer_ip,
-                    bgp_version,
-                    remote_as,
-                    msg_rcvd,
-                    msg_sent,
-                    _,
-                    _,
-                    _,
-                    uptime,
-                    state_1,
-                    state_2,
-                ) = bgp_table_fields
-                state_pfxrcd = "{} {}".format(state_1, state_2)
-            else:
-                (
-                    peer_ip,
-                    bgp_version,
-                    remote_as,
-                    msg_rcvd,
-                    msg_sent,
-                    _,
-                    _,
-                    _,
-                    uptime,
-                    state_pfxrcd,
-                ) = bgp_table_fields
-        except ValueError:
-            raise ValueError("Unexpected entry ({}) in BGP summary table".format(bgp_table_fields))
-
-        is_enabled = True
-        try:
-            received_prefixes = int(state_pfxrcd)
-            is_up = True
-        except ValueError:
-            received_prefixes = -1
-            is_up = False
-            if re.search(r"Shut.*Admin", state_pfxrcd):
-                is_enabled = False
-
-        if not is_up:
-            uptime = -1
-        if uptime != -1:
-            uptime = bgp_time_conversion(uptime)
-
-        yield {
-            peer_ip: {
-                "is_enabled": is_enabled,
-                "uptime": uptime,
-                "remote_as": helpers.as_number(remote_as),
-                "is_up": is_up,
-                "description": "",
-                "received_prefixes": received_prefixes,
-            }
-        }
+    pass
 
 
 def bgp_summary_parser(bgp_summary):
     """Parse 'show bgp all summary vrf' output information from NX-OS devices."""
-
-    bgp_summary_dict = {}
-    # Check for BGP summary information lines that have no data
-    if len(bgp_summary.strip().splitlines()) <= 1:
-        return {}
-
-    allowed_afi = ["ipv4", "ipv6", "l2vpn"]
-    vrf_regex = r"^BGP summary information for VRF\s+(?P<vrf>\S+),"
-    afi_regex = r"^BGP summary information.*address family (?P<afi>\S+ (?:Unicast|EVPN))"
-    local_router_regex = (
-        r"^BGP router identifier\s+(?P<router_id>\S+)"
-        r",\s+local AS number\s+(?P<local_as>\S+)"
-    )
-
-    for pattern in [vrf_regex, afi_regex, local_router_regex]:
-        match = re.search(pattern, bgp_summary, flags=re.M)
-        if match:
-            bgp_summary_dict.update(match.groupdict(1))
-
-    # Some post regex cleanup and validation
-    vrf = bgp_summary_dict["vrf"]
-    if vrf.lower() == "default":
-        bgp_summary_dict["vrf"] = "global"
-
-    afi = bgp_summary_dict["afi"]
-    afi = afi.split()[0].lower()
-    if afi not in allowed_afi:
-        raise ValueError("AFI ({}) is invalid and not supported.".format(afi))
-    bgp_summary_dict["afi"] = afi
-
-    local_as = bgp_summary_dict["local_as"]
-    local_as = helpers.as_number(local_as)
-
-    match = re.search(IPV4_ADDR_REGEX, bgp_summary_dict["router_id"])
-    if not match:
-        raise ValueError("BGP router_id ({}) is not valid".format(bgp_summary_dict["router_id"]))
-
-    vrf = bgp_summary_dict["vrf"]
-    bgp_return_dict = {vrf: {"router_id": bgp_summary_dict["router_id"], "peers": {}}}
-
-    # Extract and process the tabular data
-    tabular_divider = r"^Neighbor\s+.*PfxRcd$"
-    tabular_data = re.split(tabular_divider, bgp_summary, flags=re.M)
-    if len(tabular_data) != 2:
-        msg = "Unexpected data processing BGP summary information:\n\n{}".format(bgp_summary)
-        raise ValueError(msg)
-    tabular_data = tabular_data[1]
-    bgp_table = bgp_normalize_table_data(tabular_data)
-    for bgp_entry in bgp_table_parser(bgp_table):
-        bgp_return_dict[vrf]["peers"].update(bgp_entry)
-
-    bgp_new_dict = {}
-    for neighbor, bgp_data in bgp_return_dict[vrf]["peers"].items():
-        received_prefixes = bgp_data.pop("received_prefixes")
-        bgp_data["address_family"] = {}
-        prefixes_dict = {
-            "sent_prefixes": -1,
-            "accepted_prefixes": -1,
-            "received_prefixes": received_prefixes,
-        }
-        bgp_data["address_family"][afi] = prefixes_dict
-        bgp_data["local_as"] = local_as
-        # FIX, hard-coding
-        bgp_data["remote_id"] = "0.0.0.0"
-        bgp_new_dict[neighbor] = bgp_data
-
-    bgp_return_dict[vrf]["peers"] = bgp_new_dict
-
-    return bgp_return_dict
+    pass
 
 
 class NXOSSSHDriver(NXOSDriverBase):
@@ -432,9 +262,7 @@ class NXOSSSHDriver(NXOSDriverBase):
         }
 
     def open(self):
-        self.device = self._netmiko_open(
-            device_type="cisco_nxos", netmiko_optional_args=self.netmiko_optional_args
-        )
+        pass
 
     def close(self):
         self._netmiko_close()
@@ -544,19 +372,10 @@ class NXOSSSHDriver(NXOSDriverBase):
         self._copy_run_start()
 
     def _apply_key_map(self, key_map, table):
-        new_dict = {}
-        for key, value in table.items():
-            new_key = key_map.get(key)
-            if new_key:
-                new_dict[new_key] = str(value)
-        return new_dict
+        pass
 
     def _convert_uptime_to_seconds(self, uptime_facts):
-        seconds = int(uptime_facts["up_days"]) * 24 * 60 * 60
-        seconds += int(uptime_facts["up_hours"]) * 60 * 60
-        seconds += int(uptime_facts["up_mins"]) * 60
-        seconds += int(uptime_facts["up_secs"])
-        return seconds
+        pass
 
     def get_facts(self):
         """Return a set of facts from the devices."""
@@ -744,24 +563,7 @@ class NXOSSSHDriver(NXOSDriverBase):
             }
         }
         """
-        bgp_dict = {}
-
-        # get summary output from device
-        cmd_bgp_all_sum = "show bgp all summary vrf all"
-        bgp_summary_output = self._send_command(cmd_bgp_all_sum).strip()
-
-        section_separator = r"BGP summary information for "
-        bgp_summary_sections = re.split(section_separator, bgp_summary_output)
-        if len(bgp_summary_sections):
-            bgp_summary_sections.pop(0)
-
-        for bgp_section in bgp_summary_sections:
-            bgp_section = section_separator + bgp_section
-            bgp_dict.update(bgp_summary_parser(bgp_section))
-
-        # FIX -- look up logical or behavior we did in Cisco IOS bgp parser (make consistent here)
-        # FIX -- need to merge IPv6 and IPv4 AFI for same neighbor
-        return bgp_dict
+        pass
 
     def cli(self, commands, encoding="text"):
         if encoding not in ("text",):
@@ -779,50 +581,7 @@ class NXOSSSHDriver(NXOSDriverBase):
         """
         get_network_instances implementation for NX-OS
         """
-
-        # command 'show vrf detail | json' returns all VRFs with detailed information in JSON format
-        # format: list of dictionaries with keys such as 'vrf_name' and 'rd'
-        vrf_table_raw = self._get_command_table("show vrf detail | json", "TABLE_vrf", "ROW_vrf")
-
-        # command 'show vrf interface' returns all interfaces including their assigned VRF
-        # format: list of dictionaries with keys 'if_name', 'vrf_name', 'vrf_id' and 'soo'
-        intf_table_raw = self._get_command_table("show vrf interface | json", "TABLE_if", "ROW_if")
-
-        # create a dictionary with key = 'vrf_name' and value = list of interfaces
-        vrf_intfs = defaultdict(list)
-        for intf in intf_table_raw:
-            vrf_intfs[intf["vrf_name"]].append(str(intf["if_name"]))
-
-        vrfs = {}
-        for vrf in vrf_table_raw:
-            vrf_name = str(vrf.get("vrf_name"))
-            vrfs[vrf_name] = {}
-            vrfs[vrf_name]["name"] = vrf_name
-
-            # differentiate between VRF type 'DEFAULT_INSTANCE' and 'L3VRF'
-            if vrf_name == "default":
-                vrfs[vrf_name]["type"] = "DEFAULT_INSTANCE"
-            else:
-                vrfs[vrf_name]["type"] = "L3VRF"
-
-            vrfs[vrf_name]["state"] = {"route_distinguisher": str(vrf.get("rd"))}
-
-            # convert list of interfaces (vrf_intfs[vrf_name]) to expected format
-            # format = dict with key = interface name and empty values
-            vrfs[vrf_name]["interfaces"] = {}
-            vrfs[vrf_name]["interfaces"]["interface"] = dict.fromkeys(vrf_intfs[vrf_name], {})
-
-        # if name of a specific VRF was passed as an argument
-        # only return results for this particular VRF
-
-        if name:
-            if name in vrfs.keys():
-                return {str(name): vrfs[name]}
-            else:
-                return {}
-        # else return results for all VRFs
-        else:
-            return vrfs
+        pass
 
     def get_environment(self):
         """
@@ -831,65 +590,7 @@ class NXOSSSHDriver(NXOSDriverBase):
         power and fan are currently not implemented
         cpu is using 1-minute average
         """
-
-        environment = {}
-        # sys_resources contains cpu and mem output
-        sys_resources = self._send_command("show system resources")
-        temp_cmd = "show environment temperature"
-
-        # cpu
-        environment.setdefault("cpu", {})
-        environment["cpu"]["0"] = {}
-        environment["cpu"]["0"]["%usage"] = -1.0
-        system_resources_cpu = helpers.textfsm_extractor(self, "system_resources", sys_resources)
-        for cpu in system_resources_cpu:
-            cpu_dict = {cpu.get("cpu_id"): {"%usage": round(100 - float(cpu.get("cpu_idle")), 2)}}
-            environment["cpu"].update(cpu_dict)
-
-        # memory
-        environment.setdefault("memory", {})
-        for line in sys_resources.splitlines():
-            # Memory usage:   16401224K total,   4798280K used,   11602944K free
-            if "Memory usage:" in line:
-                proc_total_mem, proc_used_mem, _ = line.split(",")
-                proc_used_mem = re.search(r"\d+", proc_used_mem).group(0)
-                proc_total_mem = re.search(r"\d+", proc_total_mem).group(0)
-                break
-        else:
-            raise ValueError("Unexpected output from: {}".format(line))
-        environment["memory"]["used_ram"] = int(proc_used_mem)
-        environment["memory"]["available_ram"] = int(proc_total_mem)
-
-        # temperature
-        output = self._send_command(temp_cmd)
-        environment.setdefault("temperature", {})
-        for line in output.splitlines():
-            # Module   Sensor        MajorThresh   MinorThres   CurTemp     Status
-            # 1        Intake          70              42          28         Ok
-            if re.match(r"^[0-9]", line):
-                module, sensor, is_critical, is_alert, temp, _ = line.split()
-                is_critical = float(is_critical)
-                is_alert = float(is_alert)
-                temp = float(temp)
-                env_value = {
-                    "is_alert": temp >= is_alert,
-                    "is_critical": temp >= is_critical,
-                    "temperature": temp,
-                }
-                location = "{0}-{1}".format(sensor, module)
-                environment["temperature"][location] = env_value
-
-        # Initialize 'power' and 'fan' to default values (not implemented)
-        environment.setdefault("power", {})
-        environment["power"]["invalid"] = {
-            "status": True,
-            "output": -1.0,
-            "capacity": -1.0,
-        }
-        environment.setdefault("fans", {})
-        environment["fans"]["invalid"] = {"status": True}
-
-        return environment
+        pass
 
     def get_arp_table(self, vrf=""):
         """
@@ -917,74 +618,16 @@ class NXOSSSHDriver(NXOSDriverBase):
                 },
             ]
         """
-        arp_table = []
-
-        command = "show ip arp vrf {} | exc INCOMPLETE".format(vrf or "all")
-        output = self._send_command(command)
-
-        separator = r"^Address\s+Age.*Interface.*$"
-        arp_list = re.split(separator, output, flags=re.M)
-        if len(arp_list) != 2:
-            raise ValueError("Error processing arp table output:\n\n{}".format(output))
-
-        arp_entries = arp_list[1].strip()
-        for line in arp_entries.splitlines():
-            if len(line.split()) >= 4:
-                # Search for extra characters to strip, currently strip '*', '+', '#', 'D'
-                line = re.sub(r"\s+[\*\+\#D]{1,4}\s*$", "", line, flags=re.M)
-                address, age, mac, interface = line.split()
-            else:
-                raise ValueError("Unexpected output from: {}".format(line.split()))
-
-            if age == "-":
-                age = -1.0
-            elif ":" not in age:
-                # Cisco sometimes returns a sub second arp time 0.411797
-                try:
-                    age = float(age)
-                except ValueError:
-                    age = -1.0
-            else:
-                age = convert_hhmmss(age)
-                age = float(age)
-            age = round(age, 1)
-
-            # Validate we matched correctly
-            if not re.search(RE_IPADDR, address):
-                raise ValueError("Invalid IP Address detected: {}".format(address))
-            if not re.search(RE_MAC, mac):
-                raise ValueError("Invalid MAC Address detected: {}".format(mac))
-            entry = {
-                "interface": interface,
-                "mac": helpers.mac(mac),
-                "ip": address,
-                "age": age,
-            }
-            arp_table.append(entry)
-        return arp_table
+        pass
 
     def _get_ntp_entity(self, peer_type):
-        ntp_entities = {}
-        command = "show ntp peers"
-        output = self._send_command(command)
-
-        for line in output.splitlines():
-            # Skip first two lines and last line of command output
-            if line == "" or "-----" in line or "Peer IP Address" in line:
-                continue
-            elif not ipaddress.ip_address(len(line.split()[0])).is_multicast:
-                peer_addr = line.split()[0]
-                ntp_entities[peer_addr] = {}
-            else:
-                raise ValueError("Did not correctly find a Peer IP Address")
-
-        return ntp_entities
+        pass
 
     def get_ntp_peers(self):
-        return self._get_ntp_entity("Peer")
+        pass
 
     def get_ntp_servers(self):
-        return self._get_ntp_entity("Server")
+        pass
 
     def get_interfaces_ip(self):
         """
@@ -1016,75 +659,7 @@ class NXOSSSHDriver(NXOSDriverBase):
             }
         }
         """
-        interfaces_ip = {}
-        ipv4_command = "show ip interface vrf all"
-        ipv6_command = "show ipv6 interface vrf all"
-        output_v4 = self._send_command(ipv4_command)
-        output_v6 = self._send_command(ipv6_command)
-
-        v4_interfaces = {}
-        for line in output_v4.splitlines():
-            # Ethernet2/2, Interface status: protocol-up/link-up/admin-up, iod: 38,
-            # IP address: 2.2.2.2, IP subnet: 2.2.2.0/27 route-preference: 0, tag: 0
-            # IP address: 3.3.3.3, IP subnet: 3.3.3.0/25 secondary route-preference: 0, tag: 0
-            if "Interface status" in line:
-                interface = line.split(",")[0]
-                continue
-            if "IP address" in line:
-                ip_address = line.split(",")[0].split()[2]
-                try:
-                    prefix_len = int(line.split()[5].split("/")[1])
-                except (ValueError, IndexError):
-                    prefix_len = "N/A"
-
-                if ip_address == "none":
-                    v4_interfaces.setdefault(interface, {})
-                else:
-                    val = {"prefix_length": prefix_len}
-                    v4_interfaces.setdefault(interface, {})[ip_address] = val
-
-        v6_interfaces = {}
-        for line in output_v6.splitlines():
-            # Ethernet2/4, Interface status: protocol-up/link-up/admin-up, iod: 40
-            # IPv6 address:
-            #   2001:11:2233::a1/24 [VALID]
-            #   2001:cc11:22bb:0:2ec2:60ff:fe4f:feb2/64 [VALID]
-            # IPv6 subnet:  2001::/24
-            # IPv6 link-local address: fe80::2ec2:60ff:fe4f:feb2 (default) [VALID]
-            # IPv6 address: fe80::a293:51ff:fe5f:5ce9 [VALID]
-            if "Interface status" in line:
-                interface = line.split(",")[0]
-                continue
-            if "VALID" in line:
-                line = line.strip()
-                if "link-local address" in line:
-                    # match the following format:
-                    # IPv6 link-local address: fe80::2ec2:60ff:fe4f:feb2 (default) [VALID]
-                    ip_address = line.split()[3]
-                    prefix_len = "64"
-                elif "IPv6 address" in line:
-                    # match the following format:
-                    # IPv6 address: fe80::a293:51ff:fe5f:5ce9 [VALID]
-                    ip_address = line.split()[2]
-                    prefix_len = "64"
-                else:
-                    ip_address, prefix_len = line.split()[0].split("/")
-                prefix_len = int(prefix_len)
-                val = {"prefix_length": prefix_len}
-                v6_interfaces.setdefault(interface, {})[ip_address] = val
-            else:
-                # match the following format:
-                # IPv6 address: none
-                v6_interfaces.setdefault(interface, {})
-
-        # Join data from intermediate dictionaries.
-        for interface, data in v4_interfaces.items():
-            interfaces_ip.setdefault(interface, {"ipv4": {}})["ipv4"] = data
-
-        for interface, data in v6_interfaces.items():
-            interfaces_ip.setdefault(interface, {"ipv6": {}})["ipv6"] = data
-
-        return interfaces_ip
+        pass
 
     def get_mac_address_table(self):
         """
@@ -1118,540 +693,32 @@ class NXOSSSHDriver(NXOSDriverBase):
                                                                     Eth112/1/6 Eth122/1/5
 
         """
-
-        #  The '*' is stripped out later
-        RE_MACTABLE_FORMAT1 = r"^\s+{}\s+{}\s+\S+\s+\S+\s+\S+\s+\S+\s+\S+".format(
-            VLAN_REGEX, MAC_REGEX
-        )
-        RE_MACTABLE_FORMAT2 = r"^\s+{}\s+{}\s+\S+\s+\S+\s+\S+\s+\S+\s+\S+".format("-", MAC_REGEX)
-        # REGEX dedicated for lines with only interfaces (suite of the previous MAC address)
-        RE_MACTABLE_FORMAT3 = r"^\s+\S+"
-
-        mac_address_table = []
-        command = "show mac address-table"
-        output = self._send_command(command)
-
-        def remove_prefix(s, prefix):
-            return s[len(prefix) :] if s.startswith(prefix) else s
-
-        def process_mac_fields(vlan, mac, mac_type, interface):
-            """Return proper data for mac address fields."""
-            if mac_type.lower() in ["self", "static", "system"]:
-                static = True
-                if vlan.lower() == "all":
-                    vlan = 0
-                elif vlan == "-":
-                    vlan = 0
-                if (
-                    interface.lower() == "cpu"
-                    or re.search(r"router", interface.lower())
-                    or re.search(r"switch", interface.lower())
-                ):
-                    interface = ""
-            else:
-                static = False
-            if mac_type.lower() in ["dynamic"]:
-                active = True
-            else:
-                active = False
-            return {
-                "mac": helpers.mac(mac),
-                "interface": canonical_interface_name(interface),
-                "vlan": int(vlan),
-                "static": static,
-                "active": active,
-                "moves": -1,
-                "last_move": -1.0,
-            }
-
-        # Skip the header lines
-        output = re.split(r"^----.*", output, flags=re.M)[1:]
-        output = "\n".join(output).strip()
-        # Strip any leading characters
-        output = re.sub(r"^[\*\+GOCE]", "", output, flags=re.M)
-        output = re.sub(r"^\(R\)", "", output, flags=re.M)
-        output = re.sub(r"^\(T\)", "", output, flags=re.M)
-        output = re.sub(r"^\(F\)", "", output, flags=re.M)
-        output = re.sub(r"vPC Peer-Link", "vPC-Peer-Link", output, flags=re.M)
-
-        for line in output.splitlines():
-            # Every 500 Mac's Legend is reprinted, regardless of terminal length
-            if re.search(r"^Legend", line):
-                continue
-            elif re.search(r"^\s+\* \- primary entry", line):
-                continue
-            elif re.search(r"^\s+age \-", line):
-                continue
-            elif re.search(r"^\s+VLAN", line):
-                continue
-            elif re.search(r"^------", line):
-                continue
-            elif re.search(r"^\s*$", line):
-                continue
-
-            for pattern in [
-                RE_MACTABLE_FORMAT1,
-                RE_MACTABLE_FORMAT2,
-                RE_MACTABLE_FORMAT3,
-            ]:
-                if re.search(pattern, line):
-                    fields = line.split()
-                    if len(fields) >= 7:
-                        vlan, mac, mac_type, _, _, _, interface = fields[:7]
-                        mac_address_table.append(process_mac_fields(vlan, mac, mac_type, interface))
-
-                        # there can be multiples interfaces for the same MAC on the same line
-                        for interface in fields[7:]:
-                            mac_address_table.append(
-                                process_mac_fields(vlan, mac, mac_type, interface)
-                            )
-                        break
-
-                    # interfaces can overhang to the next line (line only contains interfaces)
-                    elif len(fields) < 7:
-                        for interface in fields:
-                            mac_address_table.append(
-                                process_mac_fields(vlan, mac, mac_type, interface)
-                            )
-                        break
-            else:
-                raise ValueError("Unexpected output from: {}".format(repr(line)))
-
-        return mac_address_table
+        pass
 
     def _get_bgp_route_attr(self, destination, vrf, next_hop, ip_version=4):
         """
         BGP protocol attributes for get_route_tp
         Only IPv4 supported
         """
-
-        CMD_SHIBNV = 'show ip bgp neighbors vrf {vrf} | include "is {neigh}"'
-
-        search_re_dict = {
-            "aspath": {
-                "re": r"AS-Path: ([\d\(\)]([\d\(\) ])*)",
-                "group": 1,
-                "default": "",
-            },
-            "bgpnh": {
-                "re": r"[^|\\n][ ]{4}(" + IP_ADDR_REGEX + r")",
-                "group": 1,
-                "default": "",
-            },
-            "bgpfrom": {
-                "re": r"from (" + IP_ADDR_REGEX + r")",
-                "group": 1,
-                "default": "",
-            },
-            "bgpcomm": {
-                "re": r"  Community: ([\w\d\-\: ]+)",
-                "group": 1,
-                "default": "",
-            },
-            "bgplp": {"re": r"localpref (\d+)", "group": 1, "default": ""},
-            # external, internal, redist
-            "bgpie": {"re": r"^: (\w+),", "group": 1, "default": ""},
-            "vrfimp": {
-                "re": r"Imported from [\S]+ \(VRF (\S+)\)",
-                "group": 1,
-                "default": "",
-            },
-        }
-
-        bgp_attr = {}
-        # get BGP AS number
-        outbgp = self._send_command('show bgp process | include "BGP Protocol Tag"')
-        matchbgpattr = RE_BGP_PROTO_TAG.match(outbgp)
-        if not matchbgpattr:
-            return bgp_attr
-        bgpas = matchbgpattr.group(1)
-        if ip_version == 4:
-            bgpcmd = "show ip bgp vrf {vrf} {destination}".format(vrf=vrf, destination=destination)
-            outbgp = self._send_command(bgpcmd)
-            outbgpsec = outbgp.split("Path type")
-
-            # this should not happen (zero BGP paths)...
-            if len(outbgpsec) == 1:
-                return bgp_attr
-
-            # process all bgp paths
-            for bgppath in outbgpsec[1:]:
-                if "is best path" not in bgppath:
-                    # only best path is added to protocol attributes
-                    continue
-                # find BGP attributes
-                for key in search_re_dict:
-                    matchre = re.search(search_re_dict[key]["re"], bgppath)
-                    if matchre:
-                        groupnr = int(search_re_dict[key]["group"])
-                        search_re_dict[key]["result"] = matchre.group(groupnr)
-                    else:
-                        search_re_dict[key]["result"] = search_re_dict[key]["default"]
-                bgpnh = search_re_dict["bgpnh"]["result"]
-
-                # if route is not leaked next hops have to match
-                if (search_re_dict["bgpie"]["result"] not in ["redist", "local"]) and (
-                    bgpnh != next_hop
-                ):
-                    # this is not the right route
-                    continue
-                # find remote AS nr. of this neighbor
-                bgpcmd = CMD_SHIBNV.format(vrf=vrf, neigh=bgpnh)
-                outbgpnei = self._send_command(bgpcmd)
-                matchbgpras = RE_BGP_REMOTE_AS.search(outbgpnei)
-                if matchbgpras:
-                    bgpras = matchbgpras.group(1)
-                else:
-                    # next-hop is not known in this vrf, route leaked from
-                    #  other vrf or from vpnv4 table?
-                    # get remote AS nr. from as-path if it is ebgp neighbor
-                    # if locally sourced remote AS if undefined
-                    bgpie = search_re_dict["bgpie"]["result"]
-                    if bgpie == "external":
-                        bgpras = bgpie.split(" ")[0].replace("(", "")
-                    elif bgpie == "internal":
-                        bgpras = bgpas
-                    else:  # redist, local
-                        bgpras = ""
-                # community
-                bothcomm = []
-                extcomm = []
-                stdcomm = search_re_dict["bgpcomm"]["result"].split()
-                commsplit = bgppath.split("Extcommunity:")
-                if len(commsplit) == 2:
-                    for line in commsplit[1].split("\n")[1:]:
-                        #          RT:65004:22
-                        matchcommun = RE_BGP_COMMUN.match(line)
-                        if matchcommun:
-                            extcomm.append(matchcommun.group(1))
-                        else:
-                            # we've reached end of the extended community section
-                            break
-                bothcomm = stdcomm + extcomm
-                bgp_attr = {
-                    "as_path": search_re_dict["aspath"]["result"].strip(),
-                    "remote_address": search_re_dict["bgpfrom"]["result"],
-                    "local_preference": int(search_re_dict["bgplp"]["result"]),
-                    "communities": bothcomm,
-                    "local_as": helpers.as_number(bgpas),
-                }
-                if bgpras:
-                    bgp_attr["remote_as"] = helpers.as_number(bgpras)
-                else:
-                    bgp_attr["remote_as"] = 0  # 0? , locally sourced
-        return bgp_attr
+        pass
 
     def get_route_to(self, destination="", protocol="", longer=False):
         """
         Only IPv4 supported, vrf aware, longer_prefixes parameter ready
         """
-        if longer:
-            raise NotImplementedError("Longer prefixes not yet supported for NXOS")
-        longer_pref = ""  # longer_prefixes support, for future use
-        vrf = ""
-
-        ip_version = None
-        try:
-            ip_version = ipaddress.ip_network(destination).version
-        except ValueError:
-            return "Please specify a valid destination!"
-        if ip_version == 4:  # process IPv4 routing table
-            routes = {}
-            if vrf:
-                send_cmd = "show ip route vrf {vrf} {destination} {longer}".format(
-                    vrf=vrf, destination=destination, longer=longer_pref
-                ).rstrip()
-            else:
-                send_cmd = "show ip route vrf all {destination} {longer}".format(
-                    destination=destination, longer=longer_pref
-                ).rstrip()
-            out_sh_ip_rou = self._send_command(send_cmd)
-            # IP Route Table for VRF "TEST"
-            for vrfsec in out_sh_ip_rou.split("IP Route Table for ")[1:]:
-                if "Route not found" in vrfsec:
-                    continue
-                vrffound = False
-                preffound = False
-                nh_list = []
-                cur_prefix = ""
-                for line in vrfsec.split("\n"):
-                    if not vrffound:
-                        vrfstr = RE_RT_VRF_NAME.match(line)
-                        if vrfstr:
-                            curvrf = vrfstr.group(1)
-                            vrffound = True
-                    else:
-                        # 10.10.56.0/24, ubest/mbest: 2/0
-                        prefstr = RE_RT_IPV4_ROUTE_PREF.match(line)
-                        if prefstr:
-                            if preffound:  # precess previous prefix
-                                if cur_prefix not in routes:
-                                    routes[cur_prefix] = []
-                                for nh in nh_list:
-                                    routes[cur_prefix].append(nh)
-                                nh_list = []
-                            else:
-                                preffound = True
-                            cur_prefix = prefstr.group(1)
-                            continue
-                        #     *via 10.2.49.60, Vlan3013, [0/0], 1y18w, direct
-                        #      via 10.17.205.132, Po77.3602, [110/20], 1y18w, ospf-1000,
-                        #            type-2, tag 2112
-                        #     *via 10.17.207.42, Eth3/7.212, [110/20], 02:19:36, ospf-1000, type-2,
-                        #            tag 2121
-                        #     *via 10.17.207.73, [1/0], 1y18w, static
-                        #     *via 10.17.209.132%vrf2, Po87.3606, [20/20], 1y25w, bgp-65000,
-                        #            external, tag 65000
-                        #     *via Vlan596, [1/0], 1y18w, static
-                        viastr = RE_IP_ROUTE_VIA_REGEX.match(line)
-                        if viastr:
-                            nh_used = viastr.group("used") == "*"
-                            nh_ip = viastr.group("ip") or ""
-                            # when next hop is leaked from other vrf, for future use
-                            # nh_vrf = viastr.group('vrf')
-                            nh_int = viastr.group("int")
-                            nh_metric = viastr.group("metric")
-                            nh_age = bgp_time_conversion(viastr.group("age"))
-                            nh_source = viastr.group("source")
-                            # for future use
-                            # rest_of_line = viastr.group('rest')
-                            # use only routes from specified protocol
-                            if protocol and protocol != nh_source:
-                                continue
-                            # routing protocol process number, for future use
-                            # nh_source_proc_nr = viastr.group('procnr)
-                            if nh_int:
-                                nh_int_canon = canonical_interface_name(nh_int)
-                            else:
-                                nh_int_canon = ""
-                            route_entry = {
-                                "protocol": nh_source,
-                                "outgoing_interface": nh_int_canon,
-                                "age": nh_age,
-                                "current_active": nh_used,
-                                "routing_table": curvrf,
-                                "last_active": nh_used,
-                                "next_hop": nh_ip,
-                                "selected_next_hop": nh_used,
-                                "inactive_reason": "",
-                                "preference": int(nh_metric),
-                            }
-                            if nh_source == "bgp":
-                                route_entry["protocol_attributes"] = self._get_bgp_route_attr(
-                                    cur_prefix, curvrf, nh_ip
-                                )
-                            else:
-                                route_entry["protocol_attributes"] = {}
-                            nh_list.append(route_entry)
-                # process last next hop entries
-                if preffound:
-                    if cur_prefix not in routes:
-                        routes[cur_prefix] = []
-                    for nh in nh_list:
-                        routes[cur_prefix].append(nh)
-        return routes
+        pass
 
     def get_snmp_information(self):
-        snmp_information = {}
-        command = "show running-config"
-        output = self._send_command(command)
-        snmp_config = helpers.textfsm_extractor(self, "snmp_config", output)
-
-        if not snmp_config:
-            return snmp_information
-
-        snmp_information = {
-            "contact": str(""),
-            "location": str(""),
-            "community": {},
-            "chassis_id": str(""),
-        }
-
-        for snmp_entry in snmp_config:
-            contact = str(snmp_entry.get("contact", ""))
-            if contact:
-                snmp_information["contact"] = contact
-            location = str(snmp_entry.get("location", ""))
-            if location:
-                snmp_information["location"] = location
-
-            community_name = str(snmp_entry.get("community", ""))
-            if not community_name:
-                continue
-
-            if community_name not in snmp_information["community"].keys():
-                snmp_information["community"][community_name] = {
-                    "acl": str(snmp_entry.get("acl", "")),
-                    "mode": str(snmp_entry.get("mode", "").lower()),
-                }
-            else:
-                acl = str(snmp_entry.get("acl", ""))
-                if acl:
-                    snmp_information["community"][community_name]["acl"] = acl
-                mode = str(snmp_entry.get("mode", "").lower())
-                if mode:
-                    snmp_information["community"][community_name]["mode"] = mode
-        return snmp_information
+        pass
 
     def get_users(self):
-        _CISCO_TO_CISCO_MAP = {"network-admin": 15, "network-operator": 5}
-
-        _DEFAULT_USER_DICT = {"password": "", "level": 0, "sshkeys": []}
-
-        users = {}
-        command = "show running-config"
-        output = self._send_command(command)
-        section_username_tabled_output = helpers.textfsm_extractor(self, "users", output)
-
-        for user in section_username_tabled_output:
-            username = user.get("username", "")
-            if not username:
-                continue
-            if username not in users:
-                users[username] = _DEFAULT_USER_DICT.copy()
-
-            password = user.get("password", "")
-            if password:
-                users[username]["password"] = str(password.strip())
-
-            level = 0
-            role = user.get("role", "")
-            if role.startswith("priv"):
-                level = int(role.split("-")[-1])
-            else:
-                level = _CISCO_TO_CISCO_MAP.get(role, 0)
-            if level > users.get(username).get("level"):
-                # unfortunately on Cisco you can set different priv levels for the same user
-                # Good news though: the device will consider the highest level
-                users[username]["level"] = level
-
-            sshkeytype = user.get("sshkeytype", "")
-            sshkeyvalue = user.get("sshkeyvalue", "")
-            if sshkeytype and sshkeyvalue:
-                if sshkeytype not in ["ssh-rsa", "ssh-dsa"]:
-                    continue
-                users[username]["sshkeys"].append(str(sshkeyvalue))
-        return users
+        pass
 
     def get_vlans(self):
-        vlans = {}
-        command = "show vlan brief | json"
-        vlan_table_raw = self._get_command_table(
-            command, "TABLE_vlanbriefxbrief", "ROW_vlanbriefxbrief"
-        )
-        if isinstance(vlan_table_raw, dict):
-            vlan_table_raw = [vlan_table_raw]
-
-        for vlan in vlan_table_raw:
-            if "vlanshowplist-ifidx" not in vlan.keys():
-                vlan["vlanshowplist-ifidx"] = []
-            if "vlanshowbr-vlanid-utf" in vlan.keys():
-                vlan_number = vlan["vlanshowbr-vlanid-utf"]
-            else:
-                vlan_number = vlan["vlanshowbr-vlanid"]
-            vlans[vlan_number] = {
-                "name": vlan["vlanshowbr-vlanname"],
-                "interfaces": self._parse_vlan_ports(vlan["vlanshowplist-ifidx"]),
-            }
-        return vlans
+        pass
 
     def get_optics(self):
-        command = "show interface transceiver details"
-        output = self._send_command(command)
-
-        # Formatting data into return data structure
-        optics_detail = {}
-
-        # Extraction Regexps
-        port_ts_re = re.compile(r"^Ether.*?(?=\nEther|\Z)", re.M | re.DOTALL)
-        port_re = re.compile(r"^(Ether.*)[ ]*?$", re.M)
-        vendor_re = re.compile("name is (.*)$", re.M)
-        vendor_part_re = re.compile("part number is (.*)$", re.M)
-        vendor_rev_re = re.compile("revision is (.*)$", re.M)
-        serial_no_re = re.compile("serial number is (.*)$", re.M)
-        type_no_re = re.compile("type is (.*)$", re.M)
-        rx_instant_re = re.compile(r"Rx Power[ ]+(?:(\S+?)[ ]+dBm|(N.A))", re.M)
-        tx_instant_re = re.compile(r"Tx Power[ ]+(?:(\S+?)[ ]+dBm|(N.A))", re.M)
-        current_instant_re = re.compile(r"Current[ ]+(?:(\S+?)[ ]+mA|(N.A))", re.M)
-
-        port_ts_l = port_ts_re.findall(output)
-
-        for port_ts in port_ts_l:
-            port = port_re.search(port_ts).group(1)
-            # No transceiver is present in those case
-            if "transceiver is not present" in port_ts:
-                continue
-            if "transceiver is not applicable" in port_ts:
-                continue
-            port_detail = {"physical_channels": {"channel": []}}
-            # No metric present
-            vendor = vendor_re.search(port_ts).group(1)
-            vendor_part = vendor_part_re.search(port_ts).group(1)
-            vendor_rev = vendor_rev_re.search(port_ts).group(1)
-            serial_no = serial_no_re.search(port_ts).group(1)
-            type_s = type_no_re.search(port_ts).group(1)
-            state = {
-                "vendor": vendor.strip(),
-                "vendor_part": vendor_part.strip(),
-                "vendor_rev": vendor_rev.strip(),
-                "serial_no": serial_no.strip(),
-                "connector_type": self.connector_type_map.get(type_s, "Unknown"),
-            }
-            if "DOM is not supported" not in port_ts:
-                res = rx_instant_re.search(port_ts)
-                input_power = res.group(1) or res.group(2)
-                res = tx_instant_re.search(port_ts)
-                output_power = res.group(1) or res.group(2)
-                res = current_instant_re.search(port_ts)
-                current = res.group(1) or res.group(2)
-
-                # If interface is shutdown it returns "N/A" as output power
-                # or "N/A" as input power
-                # Converting that to -100.0 float
-                try:
-                    float(output_power)
-                except ValueError:
-                    output_power = -100.0
-                try:
-                    float(input_power)
-                except ValueError:
-                    input_power = -100.0
-                try:
-                    float(current)
-                except ValueError:
-                    current = -100.0
-
-                # Defaulting avg, min, max values to -100.0 since device does not
-                # return these values
-                optic_states = {
-                    "index": 0,
-                    "state": {
-                        "input_power": {
-                            "instant": (float(input_power) if "input_power" else -100.0),
-                            "avg": -100.0,
-                            "min": -100.0,
-                            "max": -100.0,
-                        },
-                        "output_power": {
-                            "instant": (float(output_power) if "output_power" else -100.0),
-                            "avg": -100.0,
-                            "min": -100.0,
-                            "max": -100.0,
-                        },
-                        "laser_bias_current": {
-                            "instant": (float(current) if "current" else -100.0),
-                            "avg": 0.0,
-                            "min": 0.0,
-                            "max": 0.0,
-                        },
-                    },
-                }
-                port_detail["physical_channels"]["channel"].append(optic_states)
-
-            port_detail["state"] = state
-            optics_detail[port] = port_detail
-
-        return optics_detail
+        pass
 
     def get_interfaces_counters(self):
         """
@@ -1670,79 +737,4 @@ class NXOSSSHDriver(NXOSDriverBase):
         'tx_broadcast_packets': int,
         'rx_broadcast_packets': int,
         """
-        if_mapping = {
-            "eth": {
-                "regexp": re.compile("^(Ether|port-channel).*"),
-                "mapping": {
-                    "tx_errors": "eth_outerr",
-                    "rx_errors": "eth_inerr",
-                    "tx_discards": "eth_outdiscard",
-                    "rx_discards": "eth_indiscard",
-                    "tx_octets": "eth_outbytes",
-                    "rx_octets": "eth_inbytes",
-                    "tx_unicast_packets": "eth_outucast",
-                    "rx_unicast_packets": "eth_inucast",
-                    "tx_multicast_packets": "eth_outmcast",
-                    "rx_multicast_packets": "eth_inmcast",
-                    "tx_broadcast_packets": "eth_outbcast",
-                    "rx_broadcast_packets": "eth_inbcast",
-                },
-            },
-            "mgmt": {
-                "regexp": re.compile("mgm.*"),
-                "mapping": {
-                    "tx_errors": None,
-                    "rx_errors": None,
-                    "tx_discards": None,
-                    "rx_discards": None,
-                    "tx_octets": "mgmt_out_bytes",
-                    "rx_octets": "mgmt_in_bytes",
-                    "tx_unicast_packets": None,
-                    "rx_unicast_packets": None,
-                    "tx_multicast_packets": "mgmt_out_mcast",
-                    "rx_multicast_packets": "mgmt_in_mcast",
-                    "tx_broadcast_packets": None,
-                    "rx_broadcast_packets": None,
-                },
-            },
-        }
-        command = "show interface counters detailed | json"
-        # To retrieve discards
-        command_interface = "show interface | json"
-        counters_table_raw = self._get_command_table(command, "TABLE_interface", "ROW_interface")
-        counters_interface_table_raw = self._get_command_table(
-            command_interface, "TABLE_interface", "ROW_interface"
-        )
-        all_stats_d = {}
-        # Start with show interface as all interfaces
-        # Are surely listed
-        for row in counters_interface_table_raw:
-            if_counter = {}
-            # loop through regexp to find mapping
-            for if_v in if_mapping:
-                my_re = if_mapping[if_v]["regexp"]
-                re_match = my_re.match(row["interface"])
-                if re_match:
-                    interface = re_match.group()
-                    map_d = if_mapping[if_v]["mapping"]
-                    for k, v in map_d.items():
-                        if_counter[k] = int(row[v]) if v in row else 0
-                    all_stats_d[interface] = if_counter
-                    break
-
-        for row in counters_table_raw:
-            if_counter = {}
-            # loop through regexp to find mapping
-            for if_v in if_mapping:
-                my_re = if_mapping[if_v]["regexp"]
-                re_match = my_re.match(row["interface"])
-                if re_match:
-                    interface = re_match.group()
-                    map_d = if_mapping[if_v]["mapping"]
-                    for k, v in map_d.items():
-                        if v in row:
-                            if_counter[k] = int(row[v])
-                    all_stats_d[interface].update(if_counter)
-                    break
-
-        return all_stats_d
+        pass

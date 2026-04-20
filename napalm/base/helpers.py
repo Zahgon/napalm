@@ -71,71 +71,7 @@ def load_template(
     jinja_filters: Dict = {},
     **template_vars: Any,
 ) -> None:
-    try:
-        search_path = []
-        if isinstance(template_source, str):
-            template = jinja2.Template(template_source)
-        else:
-            if template_path is not None:
-                if (
-                    isinstance(template_path, str)
-                    and os.path.isdir(template_path)
-                    and os.path.isabs(template_path)
-                ):
-                    # append driver name at the end of the custom path
-                    search_path.append(os.path.join(template_path, cls.__module__.split(".")[-1]))
-                else:
-                    raise IOError("Template path does not exist: {}".format(template_path))
-            else:
-                # Search modules for template paths
-                for c in cls.__class__.mro():
-                    if c is object:
-                        continue
-                    module = sys.modules[c.__module__].__file__
-                    if module:
-                        path = os.path.abspath(module)
-                    else:
-                        continue
-                    if path:
-                        path_to_append = os.path.dirname(path)
-                    else:
-                        continue
-                    if path_to_append:
-                        search_path.append(path_to_append)
-
-            if openconfig:
-                search_path = ["{}/oc_templates".format(s) for s in search_path]
-            else:
-                search_path = ["{}/templates".format(s) for s in search_path]
-
-            loader = jinja2.FileSystemLoader(search_path)
-            environment = jinja2.Environment(loader=loader)
-
-            for filter_name, filter_function in itertools.chain(
-                CustomJinjaFilters.filters().items(), jinja_filters.items()
-            ):
-                environment.filters[filter_name] = filter_function
-
-            template = environment.get_template(
-                "{template_name}.j2".format(template_name=template_name)
-            )
-        configuration = template.render(**template_vars)
-    except jinja2.exceptions.TemplateNotFound:
-        raise napalm.base.exceptions.TemplateNotImplemented(
-            "Config template {template_name}.j2 not found in search path: {sp}".format(
-                template_name=template_name, sp=search_path
-            )
-        )
-    except (
-        jinja2.exceptions.UndefinedError,
-        jinja2.exceptions.TemplateSyntaxError,
-    ) as jinjaerr:
-        raise napalm.base.exceptions.TemplateRenderException(
-            "Unable to render the Jinja config template {template_name}: {error}".format(
-                template_name=template_name, error=str(jinjaerr)
-            )
-        )
-    return cls.load_merge_candidate(config=configuration)
+    pass
 
 
 def netutils_parse_parents(parent: str, child: str, config: Union[str, List[str]]) -> List[str]:
@@ -146,35 +82,7 @@ def netutils_parse_parents(parent: str, child: str, config: Union[str, List[str]
     :param child:  The child line required under the given parent
     :param config: The device running/startup config
     """
-    # Check if the config is a list, if it is a list, then join it to make a string.
-    if isinstance(config, list):
-        config = "\n".join(config)
-        config = config + "\n"
-
-    # Config tree is the entire configuration in a tree format,
-    # followed by getting the individual lines that has the formats:
-    # ConfigLine(config_line=' ip address 192.0.2.10 255.255.255.0',
-    # parents=('interface GigabitEthernet1',))
-    # ConfigLine(config_line='Current configuration : 1624 bytes', parents=())
-    config_tree = IOSConfigParser(str(config))
-    configuration_lines = config_tree.build_config_relationship()
-
-    # Return config is the list that will be returned
-    return_config = []
-
-    # Loop over each of the configuration lines
-    for line in configuration_lines:
-        # Loop over any line that has a parent line. If there are no parents for a line item then
-        # the parents is an empty tuple.
-        for parent_line in line.parents:
-            if (
-                child in line.config_line
-                and re.match(parent, parent_line) is not None
-                and parent_line not in return_config
-            ):
-                return_config.append(parent_line)
-
-    return return_config
+    pass
 
 
 def netutils_parse_objects(cfg_section: str, config: Union[str, List[str]]) -> List[str]:
@@ -185,34 +93,7 @@ def netutils_parse_objects(cfg_section: str, config: Union[str, List[str]]) -> L
     :param cfg_section: The section of the config to return eg. "router bgp"
     :param config: The running/startup config of the device to parse
     """
-    # Check if the config is a list, if it is a list, then join it to make a string.
-    if isinstance(config, list):
-        config = "\n".join(config)
-        config = config + "\n"
-
-    # Config tree is the entire configuration in a tree format,
-    # followed by getting the individual lines that has the formats:
-    # ConfigLine(config_line=' ip address 192.0.2.10 255.255.255.0',
-    # parents=('interface GigabitEthernet1',))
-    # ConfigLine(config_line='Current configuration : 1624 bytes', parents=())
-    config_tree = IOSConfigParser(str(config))
-    lines = config_tree.build_config_relationship()
-
-    # Return config is the list that will be returned
-    return_config = []
-    for line in lines:
-        # The parent configuration is expected on the function that this is replacing,
-        # add the parent line to the base of the return_config
-        if cfg_section in line.config_line:
-            return_config.append(line.config_line)
-        # Check if the tuple is greater than 0
-        if len(line.parents) > 0:
-            # Check the eldest parent, if that is part of the config section, then append
-            # the current line being checked to it.
-            if cfg_section in line.parents[0]:
-                return_config.append(line.config_line)
-
-    return return_config
+    pass
 
 
 def regex_find_txt(pattern: str, text: str, default: str = "") -> Any:
@@ -227,25 +108,7 @@ def regex_find_txt(pattern: str, text: str, default: str = "") -> Any:
     :param text: String of text ot search for "pattern" in
     :param default="": Default value and type to return on error
     """
-    text = str(text)
-    value = re.findall(pattern, text)
-    try:
-        if not value:
-            logger.error("No Regex match found for pattern: %s" % (str(pattern)))
-            raise Exception("No Regex match found for pattern: %s" % (str(pattern)))
-        if not isinstance(value, type(default)):
-            if isinstance(value, list) and len(value) == 1:
-                value = value[0]
-            value = type(default)(value)  # type: ignore
-    except Exception as regexFindTxtErr01:  # in case of any exception, returns default
-        logger.error(
-            'errorCode="regexFindTxtErr01" in napalm.base.helpers with systemMessage="%s"\
-                 message="Error while attempting to find regex pattern, \
-                      default to empty string"'
-            % (regexFindTxtErr01)
-        )
-        value = default  # type: ignore
-    return value
+    pass
 
 
 def textfsm_extractor(
@@ -338,54 +201,7 @@ def ttp_parse(
     repository template in a form of ``ttp://path/to/template`` or name of template
     file within ``{NAPALM_install_dir}/utils/ttp_templates/{template}.txt`` folder.
     """
-    if not TTP_INSTALLED:
-        msg = "\nTTP is not installed. Please PIP install ttp:\npip install ttp\n"
-        raise napalm.base.exceptions.ModuleImportError(msg)
-
-    result = None
-
-    for c in cls.__class__.mro():
-        if c is object:
-            continue
-        module = sys.modules[c.__module__].__file__
-        if module:
-            current_dir = os.path.dirname(os.path.abspath(module))
-        else:
-            continue
-        template_dir_path = "{current_dir}/utils/ttp_templates".format(current_dir=current_dir)
-
-        # check if inline template given, use it as is
-        if "{{" in template and "}}" in template:
-            template = template
-        # check if template from ttp_templates repo, use it as is
-        elif template.startswith("ttp://"):
-            template = template
-        # default to using template in NAPALM folder
-        else:
-            template = "{template_dir_path}/{template}.txt".format(
-                template_dir_path=template_dir_path, template=template
-            )
-            if not os.path.exists(template):
-                msg = "Template '{template}' not found".format(template=template)
-                logging.error(msg)
-                raise napalm.base.exceptions.TemplateRenderException(msg)
-
-        # parse data
-        try:
-            result = ttp_quick_parse(
-                data=str(raw_text),
-                template=template,
-                result_kwargs={"structure": structure},
-                parse_kwargs={"one": True},
-            )
-            break
-        except Exception as e:
-            msg = "TTP template:\n'{template}'\nError: {error}".format(template=template, error=e)
-            logging.exception(e)
-            logging.error(msg)
-            raise napalm.base.exceptions.TemplateRenderException(msg)
-
-    return result
+    pass
 
 
 def find_txt(
@@ -531,19 +347,7 @@ def ip(addr: str, version: Optional[int] = None) -> str:
         >>> ip('2001:0dB8:85a3:0000:0000:8A2e:0370:7334')
         u'2001:db8:85a3::8a2e:370:7334'
     """
-    scope = ""
-    if "%" in addr:
-        addr, scope = addr.split("%", 1)
-    addr_obj = ipaddress.ip_address(addr)
-    if version and addr_obj.version != version:
-        raise ValueError("{} is not an ipv{} address".format(addr, version))
-    if addr_obj.version == 6 and addr_obj.ipv4_mapped is not None:
-        return_addr = "%s:%s" % ("::ffff", addr_obj.ipv4_mapped)
-    else:
-        return_addr = str(addr_obj)
-    if scope:
-        return_addr = "%s%%%s" % (return_addr, scope)
-    return return_addr
+    pass
 
 
 def as_number(as_number_val: str) -> int:

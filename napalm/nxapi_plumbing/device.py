@@ -104,20 +104,7 @@ class Device(object):
         Raises:
             NXAPICommandError: If there is a problem with the supplied command.
         """
-        commands = [command]
-        result = self.config_list(commands)
-
-        if len(result) > 1:
-            raise NXAPIError("Length of response inconsistent with number of commands executed.")
-
-        # Return the only entry or the empty response
-        if result:
-            if self.api_format == "jsonrpc":
-                return result[0]["result"]
-            elif self.api_format == "xml":
-                return result[0]
-
-        return result
+        pass
 
     def config_list(self, commands: List[str]) -> List[Any]:
         """Send a list of configuration commands.
@@ -163,4 +150,4 @@ class Device(object):
         Args:
             filename (str): The filename to save the checkpoint as on the remote device.
         """
-        self.show_list(["terminal dont-ask", "checkpoint file {}".format(filename)], raw_text=True)
+        pass
